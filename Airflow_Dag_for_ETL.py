@@ -253,6 +253,7 @@ def makeLocationDimension():
 # ---------------------------------------------------
 def load_data_to_sqlite():
     import sqlite3
+
     db_path = WorkingDirectory + "/etl.db"
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
@@ -266,10 +267,10 @@ def load_data_to_sqlite():
             IP TEXT,
             UserAgent TEXT,
             Referer TEXT,
-            Status TEXT,
-            sc_bytes TEXT,
-            cs_bytes TEXT,
-            TimeTaken TEXT
+            Status INTEGER,
+            sc_bytes INTEGER,
+            cs_bytes INTEGER,
+            TimeTaken INTEGER
         )
     """)
     conn.commit()
@@ -280,7 +281,7 @@ def load_data_to_sqlite():
 
     # Load data from the FactTable file
     fact_file_path = StarSchema + "FactTable.txt"
-    rows = []
+    fact_rows = []
 
     with open(fact_file_path, 'r') as f:
         next(f)  # Skip header row
@@ -292,7 +293,22 @@ def load_data_to_sqlite():
             split_row = line.split(",")
 
             if len(split_row) == 11:
-                rows.append(split_row)
+                try:
+                    fact_rows.append((
+                        split_row[0],                                  # Date
+                        split_row[1],                                  # Time
+                        split_row[2],                                  # Method
+                        split_row[3],                                  # URIStem
+                        split_row[4],                                  # IP
+                        split_row[5],                                  # UserAgent
+                        split_row[6],                                  # Referer
+                        int(split_row[7]) if split_row[7] else None,   # Status
+                        int(split_row[8]) if split_row[8] else None,   # sc_bytes
+                        int(split_row[9]) if split_row[9] else None,   # cs_bytes
+                        int(split_row[10]) if split_row[10] else None  # TimeTaken
+                    ))
+                except ValueError:
+                    print("Skipping malformed FactTable numeric row:", line)
             else:
                 print("Skipping malformed FactTable row with", len(split_row), "fields:", line)
 
@@ -301,7 +317,108 @@ def load_data_to_sqlite():
     cur.executemany("""
         INSERT INTO FactTable (Date, Time, Method, URIStem, IP, UserAgent, Referer, Status, sc_bytes, cs_bytes, TimeTaken)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, rows)
+    """, fact_rows)
+    conn.commit()
+
+
+     # -----------------------------
+    # DATE DIMENSION TABLE
+    # -----------------------------
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS DimDateTable (
+            Date TEXT,
+            Year INTEGER,
+            Month INTEGER,
+            Day INTEGER,
+            DayofWeek TEXT
+        )
+    """)
+    cur.execute("DELETE FROM DimDateTable")
+    conn.commit()
+
+    dim_date_file_path = StarSchema + "DimDateTable.txt"
+    dim_date_rows = []
+
+    with open(dim_date_file_path, 'r') as f:
+        next(f)  # Skip header row
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            split_row = line.split(",")
+
+            if len(split_row) == 5:
+                try:
+                    dim_date_rows.append((
+                        split_row[0],       # Date
+                        int(split_row[1]),  # Year
+                        int(split_row[2]),  # Month
+                        int(split_row[3]),  # Day
+                        split_row[4]        # DayofWeek
+                    ))
+                except ValueError:
+                    print("Skipping malformed DimDateTable numeric row:", line)
+            else:
+                print("Skipping malformed DimDateTable row with", len(split_row), "fields:", line)
+
+    cur.executemany("""
+        INSERT INTO DimDateTable (
+            Date, Year, Month, Day, DayofWeek
+        )
+        VALUES (?, ?, ?, ?, ?)
+    """, dim_date_rows)
+
+    # -----------------------------
+    # LOCATION DIMENSION TABLE
+    # -----------------------------
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS DimLocationTable (
+            IP TEXT,
+            country_code TEXT,
+            country_name TEXT,
+            city TEXT,
+            lat REAL,
+            long REAL
+        )
+    """)
+    cur.execute("DELETE FROM DimLocationTable")
+    conn.commit()
+
+    dim_loc_file_path = StarSchema + "DimIPLoc.txt"
+    dim_loc_rows = []
+
+    with open(dim_loc_file_path, 'r') as f:
+        next(f)  # Skip header row
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            split_row = line.split(",")
+
+            if len(split_row) == 6:
+                try:
+                    dim_loc_rows.append((
+                        split_row[0],                                    # IP
+                        split_row[1],                                    # country_code
+                        split_row[2],                                    # country_name
+                        split_row[3],                                    # city
+                        float(split_row[4]) if split_row[4] else None,   # lat
+                        float(split_row[5]) if split_row[5] else None    # long
+                    ))
+                except ValueError:
+                    print("Skipping malformed DimLocationTable numeric row:", line)
+            else:
+                print("Skipping malformed DimLocationTable row with", len(split_row), "fields:", line)
+
+    cur.executemany("""
+        INSERT INTO DimLocationTable (
+            IP, country_code, country_name, city, lat, long
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, dim_loc_rows)
+
     conn.commit()
     conn.close()
 
