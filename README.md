@@ -1,11 +1,16 @@
-# Airflow ETL Pipeline for Web Log Processing
+# Airflow ETL Pipeline & Web Traffic Analysis
 
 ## Project Overview
 
 This project implements an **ETL pipeline using Apache Airflow** to process IIS web server log data.  
-The pipeline extracts raw log files, transforms them into a structured fact table, generates supporting dimension data, and loads the cleaned results into a **SQLite database** for analysis.
+The pipeline extracts raw log files, transforms them into a structured fact table, generates supporting dimension data, and loads the cleaned results into a **SQLite database**. The database was then loaded into **Power BI** to uncover traffic patterns and detect potential automated or suspicious activity.
 
-The goal of this project was to rebuild and understand an ETL workflow while demonstrating how **Airflow can orchestrate multi-stage data processing pipelines**.
+The goal of this project was to demonstrate a complete data workflow, including:
+
+- Data Engineering (ETL pipeline)
+- Data modelling (star schema design)
+- Data analysis and visualisation (Power BI)
+- Insight generation from real-world style log data
 
 
 ## Technologies Used
@@ -13,6 +18,8 @@ The goal of this project was to rebuild and understand an ETL workflow while dem
 - Python
 - Apache Airflow
 - SQLite
+- Power BI
+- DAX (custom measures and ranking logic)
 - Bash
 - WSL / Ubuntu
 - Git / Github
@@ -48,22 +55,22 @@ The Airflow DAG **Process_Logs_Data** orchestrates the ETL pipeline
 8. **Create Date Dimension File**
    - A date dimension dataset is generated from the unique date values.
 
-9. **Copy Fact Table to Star Schema Directory**
-   - The completed fact table is moved to the schema output directory.
+9. **Prepare Star Schema Data**
+   - The fact and dimension tables are organised for modelling.
 
 10. **Load Data into SQLite**
-   - The cleaned fact table is loaded into a SQLite database.
+   - The final datasets are loaded into a SQLite database. 
 
 
 ## Data Quality Handling
 
-This project was initially completed as an assignment in the University of Dundee. During this development cycle, there were several improvements made to help increase the robustness of the pipeline:
+To improve the robustness and reliability, the pipeline included:
 
-- Updated the depracated Apache Airflow syntax
-- Removed blank rows during processing
-- Added validation for malformed rows
-- Ensured that only valid rows were inserted into the SQLite database
-- Prevented ETL pipeline failures caused by inconsistent log data
+- Removal of blank rows
+- Validation of malformed log entries
+- Handling inconsistent log formats (14-column and 18-columns)
+- Prevention of ETL failures due to bad data
+- Updated deprecated Airflow syntax
 
 ## Example Airflow DAG Execution
 
@@ -74,20 +81,93 @@ Successful DAG execution in Apache Airflow:
 ## Database Verification
 
 After the pipeline finished, the data was loaded into an SQLite database.
-The fact table contains **155,566 rows**.
+- The fact table contains **155,566 rows**.
+- The date dimension table contains **93 rows**.
+- The location dimension table contains **4013 rows**.
 
 ![SQLite Verification](sqlite_row_count.PNG)
 
 
+## Power BI Dashboard 
+
+The SQLite database was connected to **Power BI**, where an interactive dashboard was made.
+
+### Dashboard Features
+
+- Request trends over time
+- Requests by day of the week
+- Requests by hour of the day
+- Traffic distribution by country (map visualisation)
+- Top requested resources (URI analysis)
+- HTTP status code breakdown
+- Top 10 IP address deep dive analysis
+
+
+### Key Insights
+
+#### General Traffic Patterns
+
+- Total requests: ~156K
+- Nearly **80% of requests returned successful (2xx) responses**.
+- Traffic peaks at **early in the week**, with **Monday** showing the highest volume.
+- Activity is globally distributed, with the highest volume of traffic from:
+  - North America
+  - United Kingdom
+ 
+#### Suspicious/ Automated Behaviour Detection
+
+The analysis of the **top 10 IP addresses** revealed several patterns which indicated **non-human activity**:
+
+   1. High Number of Requests in a Single Day (Canada)
+      - Over **3000 requests in a single day**
+      - No other activity outside this period
+      - Heavy access to cached and image-based resources
+   This strongly indicates **automated** or **scripted behaviour**
+
+   2. High Error and Redirect Rates (United Kingdom)
+      - Large proportion of:
+        - Redirect responses (3xx)
+        - Client errors (4xx)
+      - Multiple spikes across different days
+   This suggests **repeated failed requests**, which is consistent with:
+      - Crawlers
+      - Misconfigured clients
+      - Automated scripts
+     
+   3. Continuous 24-Hour Activity (Russia)
+      - Requests distributed across all hours of the day
+      - No natural drop-off in the activity
+      - Includes large request spikes
+   This indicates **persistent automated access**, which is not typical user behaviour
+
+## Summary
+
+The key indicators of suspicious activity include:
+- Sudden spikes in requests
+- Continuous activity ascross all hours
+- High proportions of error/redirect status codes
+- Repeated access to specific resource types
+
+Majority of the IPs showed:
+- Evenly distributed activity
+- Predominantly successful responses
+
+These align with the normal user usage patterns.
+
+## Project Outcome
+
+This project demonstrated a **complete data pipeline lifecycle**, from the raw ingestion to the insight generation:
+- Build an automated ETL pipeline using Airflow
+- Designed and implemented a star schema
+- Integrated with Power BI for analysis
+- Identified meaningful behavioural patterns in the web traffic
+
 ## Future Improvements
-
-Potential improvements for this pipeline could include:
-
-- Loading dimension tables into SQlite to create a full star schema
-- Connecting the database directly to **Power BI** for data visualisation (previously exported the fact table and dimension tables as csv files to Power BI to perform the data visualisation)
-- Implementing additional data validation checks
-- Refactoring parsing logic using structured CSV handling
-
+There several areas for improvement to enhance the projects analysis and usability:
+- Incorporate **user-agent analysis** to explicitly identify the bots
+- Containerise the pipeline using Docker
+- Deploy to a cloud-based data platform
+- Enable automated dashboard refresh in Power BI Service
 
 
 ## Author
