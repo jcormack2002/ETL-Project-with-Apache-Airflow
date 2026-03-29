@@ -92,6 +92,15 @@ After the pipeline finished, the data was loaded into an SQLite database.
 
 The SQLite database was connected to **Power BI**, where an interactive dashboard was made.
 
+## Dashboard Preview
+
+### Overview Dashboard
+![Overview Page](PowerBI_Overview_Page.PNG)
+
+### Top 10 IP Analysis
+![Top 10 IP Analysis](PowerBI_Top_10_IP_Page.PNG)
+
+
 ### Dashboard Features
 
 - Request trends over time
